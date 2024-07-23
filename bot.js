@@ -1,11 +1,14 @@
 
 const Discord = require('discord.js');
 const { Client, GatewayIntentBits, Partials, ActivityType, ButtonStyle } = Discord;
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder } = Discord;
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, AttachmentBuilder } = Discord;
 const { REST, Routes } = Discord;
 
-const ToyController = require('./ToyController.js');
-const controller = new ToyController();
+const fs = require('fs');
+const path = require('path');
+const request = require('request');
+
+const controller = require('./ToyController.js');
 const Callbacks = require('./Callbacks.js');
 
 
@@ -48,7 +51,7 @@ module.exports = {
 
                     default: {
                         // pong!
-                        interaction.reply({ content: `interactionCreate isCommand ${interaction.commandName}`, allowedMentions: { repliedUser: false }, ephemeral: true })
+                        interaction.reply({ content: `interactionCreate isCommand ${subCommand}`, allowedMentions: { repliedUser: false }, ephemeral: true })
                             .catch(() => { });
 
                     } break;
@@ -127,22 +130,6 @@ module.exports = {
 
                         interaction.reply({ content, allowedMentions: { repliedUser: false }, ephemeral: true }).catch(() => { });
 
-                        if (isButton) {
-                            let { message } = interaction;
-                            let { embeds } = message;
-                            let components = [];
-                            for (let row of message.components) {
-                                let newRow = new ActionRowBuilder();
-                                for (let btn of row.components) {
-                                    let newBtn = new ButtonBuilder(btn.data);
-                                    if (!['Stop', 'QR code'].includes(btn.label)) { newBtn.setDisabled(!res); }
-                                    newRow.addComponents(newBtn);
-                                }
-                                components.push(newRow);
-                            }
-                            message.edit({ embeds, components });
-                        }
-
                     } break;
 
 
@@ -158,22 +145,6 @@ module.exports = {
                             allowedMentions: { repliedUser: false }, ephemeral: true
                         }).catch(() => { });
 
-                        if (isButton) {
-                            let { message } = interaction;
-                            let { embeds } = message;
-                            let components = [];
-                            for (let row of message.components) {
-                                let newRow = new ActionRowBuilder();
-                                for (let btn of row.components) {
-                                    let newBtn = new ButtonBuilder(btn.data);
-                                    if (!['Stop', 'QR code'].includes(btn.label)) { newBtn.setDisabled(!res); }
-                                    newRow.addComponents(newBtn);
-                                }
-                                components.push(newRow);
-                            }
-                            message.edit({ embeds, components });
-                        }
-
                     } break;
 
                     case 'preset': {
@@ -188,22 +159,6 @@ module.exports = {
                             allowedMentions: { repliedUser: false }, ephemeral: true
                         }).catch(() => { });
 
-                        if (isButton) {
-                            let { message } = interaction;
-                            let { embeds } = message;
-                            let components = [];
-                            for (let row of message.components) {
-                                let newRow = new ActionRowBuilder();
-                                for (let btn of row.components) {
-                                    let newBtn = new ButtonBuilder(btn.data);
-                                    if (!['Stop', 'QR code'].includes(btn.label)) { newBtn.setDisabled(!res); }
-                                    newRow.addComponents(newBtn);
-                                }
-                                components.push(newRow);
-                            }
-                            message.edit({ embeds, components });
-                        }
-
                     } break;
 
                     case 'stop': {
@@ -213,22 +168,6 @@ module.exports = {
                             content: res ? "Break-time!" : "There aren't any toys connected",
                             allowedMentions: { repliedUser: false }, ephemeral: true
                         }).catch(() => { });
-
-                        if (isButton) {
-                            let { message } = interaction;
-                            let { embeds } = message;
-                            let components = [];
-                            for (let row of message.components) {
-                                let newRow = new ActionRowBuilder();
-                                for (let btn of row.components) {
-                                    let newBtn = new ButtonBuilder(btn.data);
-                                    if (!['Stop', 'QR code'].includes(btn.label)) { newBtn.setDisabled(!res); }
-                                    newRow.addComponents(newBtn);
-                                }
-                                components.push(newRow);
-                            }
-                            message.edit({ embeds, components });
-                        }
 
                     } break;
 
@@ -276,6 +215,98 @@ module.exports = {
 
                         channel.send({ embeds: [embed], components }).catch(() => { });
                         interaction.reply({ content: ' ' }).catch(() => { });
+
+                    } break;
+
+                    case 'csv': {
+
+                        const channel = interaction.channel;
+                        if (!channel) { return; }
+
+                        const { attachment } = hoistedOptions[0];
+                        const { name, url } = attachment;
+                        const ext = path.extname(name);
+                        if (ext != '.csv') {
+                            interaction.reply({ content: 'Error: wrong file type' }).catch(() => { });
+                            return;
+                        }
+
+                        // download csv file
+                        const filepath = `./${name}`;
+                        await new Promise((resolve) => { request(url).pipe(fs.createWriteStream(filepath)).on('close', resolve); });
+
+                        // todo
+                        // csv file check
+
+                        // upload csv file
+                        const files = [new AttachmentBuilder(filepath, { name })];
+
+                        // csv player panel
+                        const buttons = [[
+                            { label: 'Play CSV', customID: 'csv:play', style: ButtonStyle.Primary },
+                            { label: 'Stop', customID: 'stop', style: ButtonStyle.Danger },
+                            { label: 'Pause 100ms', customID: 'csv:pause', style: ButtonStyle.Secondary },
+                            { label: 'Forward 100ms', customID: 'csv:forward', style: ButtonStyle.Secondary },
+                        ]]
+
+                        let components = [];
+                        for (let row of buttons) {
+                            let actionRow = new ActionRowBuilder();
+                            for (let { label, customID, style } of row) {
+                                actionRow.addComponents(new ButtonBuilder().setDisabled(false)
+                                    .setLabel(label).setCustomId(customID).setStyle(style)
+                                );
+                            }
+                            components.push(actionRow);
+                        }
+
+                        let { user } = interaction;
+                        let embed = new EmbedBuilder()
+                            .setAuthor({
+                                name: `${user.displayName} <@${user.id}>`,
+                                iconURL: user.displayAvatarURL({ format: 'png', size: 1024 }).replace(/\.webp/, '.png')
+                            })
+                            .setTitle('Lovense panel');
+
+                        interaction.reply({ content: ' ' }).catch(() => { });
+
+                        await channel.send({ embeds: [embed], components, files }).catch((e) => console.log(e.message));
+                        fs.unlinkSync(filepath);
+
+                    } break;
+
+
+                    case 'csv:play': {
+                        if (!isButton) { return; }
+                        let { message } = interaction;
+
+                        let args = { gID, uID };
+
+                        // download csv file
+                        for (const [key, value] of message.attachments) {
+                            const { name, url } = value;
+                            const filepath = `./${name}`;
+                            if (fs.existsSync(filepath)) { fs.unlinkSync(filepath); }
+                            await new Promise((resolve) => { request(url).pipe(fs.createWriteStream(filepath)).on('close', resolve); });
+                            args.filepath = filepath;
+                        }
+                        let res = await controller.csvPattern(args);
+
+                        interaction.reply({
+                            content: res ? `Here comes the ${res}!` : "There aren't any toys connected",
+                            allowedMentions: { repliedUser: false }, ephemeral: true
+                        }).catch(() => { });
+
+                    } break;
+
+                    case 'csv:pause': case 'csv:forward': {
+                        if (!isButton) { return; }
+
+                        let args = { gID, uID, add: (subCommand == 'csv:pause') };
+
+                        let res = await controller.csvOffset(args);
+
+                        interaction.reply({ content: ' ', allowedMentions: { repliedUser: false }, ephemeral: true }).catch(() => { });
 
                     } break;
                 }
@@ -362,6 +393,11 @@ module.exports = {
 
                 .addSubcommand(subcommand => subcommand.setName('pattern').setDescription('Send a pattern to all toys. Loops until stopped, or replaced with another action')
                     .addStringOption(option => option.setName('pattern').setRequired(false).setDescription('The pattern to send'))
+                    .addStringOption(option => option.setName('length').setRequired(false).setDescription('The length of pattern'))
+                )
+
+                .addSubcommand(subcommand => subcommand.setName('csv').setDescription('Send a csv pattern file')
+                    .addAttachmentOption(option => option.setName('pattern').setRequired(true).setDescription('The pattern file to send'))
                 )
 
                 // .addSubcommand(subcommand => subcommand.setName('preset').setDescription('Send a Preset pattern to all toys. Loops until stopped, or replaced with another action')
