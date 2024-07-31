@@ -17,8 +17,8 @@ if (!fs.existsSync('./.env')) {
     await ngrok.authtoken(process.env.NGROK_AUTHTOKEN);
 
     const listener = await ngrok.forward({ addr: process.env.PORT, authtoken_from_env: true });
-    console.log(`[Ngrok] Ingress established at:\n${listener.url()}`);
-    console.log(`[Ngrok] Please set callback url at:\nhttps://ja.lovense.com/user/developer/info`);
+    console.log(`[Ngrok] Ingress established at:\n${listener.url()}\n`);
+    console.log(`[Ngrok] Please set callback url at:\nhttps://ja.lovense.com/user/developer/info\n`);
 
     const client = await DiscordBot.init();
 

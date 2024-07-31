@@ -36,32 +36,25 @@ class CsvController {
     }
 
     async tick() {
-        const thisTickTime = parseInt(Date.now() / 100);
         const p = this.patternList[this.index];
-        const nextTickTime = p.time + this.startTime + this.offsetTime;
+        if (!p) { return; }
 
-        if (this.lastTickTime < nextTickTime && nextTickTime <= thisTickTime) {
+        // get this tick time in ds
+        const thisTickTime = parseInt(Date.now() / 100);
+        const nextPatternTime = this.startTime + p.time + this.offsetTime;
 
-            const lastPattern = (this.index >= this.patternList.length);
-            const np = lastPattern ? this.patternList[this.index] : this.patternList[this.index + 1];
+        if (this.lastTickTime < nextPatternTime && nextPatternTime <= thisTickTime) {
+            this.lastTickTime = thisTickTime;
             ++this.index;
 
-            if (p.power == 0) {
-
-                await toyController.stop(this.uID);
-
+            if (p.power <= 0.1) {
+                toyController.stop(this.uID);
             } else {
-
-                let strength = `${p.power};${np.power}`;
-                let length = lastPattern ? 100 : (np.time - p.time) * 100;
-
-                await toyController.pattern({ uID: this.uID, pattern: strength, length });
-
-                if (lastPattern) { this.stop(); }
+                toyController.vibrate({ uID: this.uID, strength: p.power, duration: 0 });
             }
-        }
 
-        this.lastTickTime = thisTickTime;
+            if (this.index >= this.patternList.length) { this.stop(); }
+        }
     }
 
     stop() {
@@ -256,7 +249,7 @@ class ToyController {
                 // match
                 const [, time, power] = line.match(regex);
                 if (!oldVersion && time.includes('.')) { oldVersion = true; }
-                pattern.push({ time, power: parseInt(power / 10) });
+                pattern.push({ time, power: (power / 10) });    // csv power: 0 ~ 200, API power: 0 ~ 20
             }
         }
         fs.unlinkSync(filepath);
@@ -286,7 +279,7 @@ class ToyController {
                 this.csvController[uID].stop();
                 delete this.csvController[uID];
             }
-            this.csvController[uID] = new CsvController(uID, pattern, this.pattern);
+            this.csvController[uID] = new CsvController(uID, pattern);
             this.csvController[uID].play();
         }
 
