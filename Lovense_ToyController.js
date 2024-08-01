@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const Callbacks = require('./Callbacks.js');
+
 const request = require('request');
 const util = require('util');
 const get = util.promisify(request.get);
@@ -11,7 +13,15 @@ const post = util.promisify(request.post);
 const API_URL_QR = 'https://api.lovense-api.com/api/lan/getQrCode';
 const API_URL_COMMAND = 'https://api.lovense-api.com/api/lan/v2/command';
 
-const REFRESH_TIME = 30;
+const REFRESH_TIME = 30000;
+
+const ngrok = require("@ngrok/ngrok");
+ngrok.authtoken(process.env.NGROK_AUTHTOKEN)
+    .then(async () => {
+        const listener = await ngrok.forward({ addr: process.env.PORT, authtoken_from_env: true });
+        console.log(`[Ngrok] Ingress established at:\n${listener.url()}\n`);
+        console.log(`[Ngrok] Please set callback url at:\nhttps://ja.lovense.com/user/developer/info\n`);
+    });
 
 class CsvController {
     uID = null;
@@ -29,7 +39,7 @@ class CsvController {
     offsetTime = 0;
 
     play() {
-        this.startTime = parseInt(Date.now() / 100);
+        this.startTime = Date.now();
         this.lastTickTime = this.startTime;
 
         this.interval = setInterval(() => this.tick(), 50);
@@ -40,7 +50,7 @@ class CsvController {
         if (!p) { return; }
 
         // get this tick time in ds
-        const thisTickTime = parseInt(Date.now() / 100);
+        const thisTickTime = Date.now();
         const nextPatternTime = this.startTime + p.time + this.offsetTime;
 
         if (this.lastTickTime < nextPatternTime && nextPatternTime <= thisTickTime) {
@@ -48,7 +58,7 @@ class CsvController {
             ++this.index;
 
             if (p.power <= 0.1) {
-                toyController.stop(this.uID);
+                toyController.stop({ uID: this.uID });
             } else {
                 toyController.vibrate({ uID: this.uID, strength: p.power, duration: 0 });
             }
@@ -68,7 +78,8 @@ class CsvController {
 
 class ToyController {
     BASE_REQ = { token: process.env.LOVENSE_DEVELOPER_TOKEN };
-    users = { uIDs: () => Object.keys(this.users).filter(key => /^\d+$/.test(key)) }
+    users = {}
+    uIDs = () => Object.keys(this.users).filter(key => /^\d+$/.test(key))
     toyCount = null;
     csvController = {};
 
@@ -110,14 +121,14 @@ class ToyController {
         }
     }
 
-    async addUser(uID, user) {
+    async addUser({ uID, user }) {
         // console.log('addUser', uID, user);
 
         if (!this.users[uID]) {
             console.log(`[Toy Controller] Added new user with UID ${uID}`);
         }
 
-        user.lastUpdated = Math.round(Date.now() / 1000);
+        user.lastUpdated = Date.now();
         this.users[uID] = user;
         this._save();
     }
@@ -126,7 +137,7 @@ class ToyController {
         this._refresh();
 
         let toys = [];
-        for (let uID of this.users.uIDs()) {
+        for (let uID of this.uIDs()) {
             let user = this.users[uID];
             for (let key of Object.keys(user.toys)) {
                 toys.push(user.toys[key]);
@@ -135,7 +146,7 @@ class ToyController {
         return toys;
     }
 
-    async stop(uID) {
+    async stop({ uID }) {
         if (this.csvController[uID]) { this.csvController[uID].stop(); delete this.csvController[uID]; }
         return this._function({ action: 'Stop', uID, strength: 0, duration: 0 });
     }
@@ -157,7 +168,7 @@ class ToyController {
 
     async pattern({ uID = null, pattern = "20;20;5;20;10", length = 100 }) {
         this._refresh();
-        if (!uID || !this.users.uIDs().includes(uID)) { return false; };
+        if (!uID || !this.uIDs().includes(uID)) { return false; };
 
         console.log('[Lovense API] pattern', uID, pattern, length);
 
@@ -176,7 +187,7 @@ class ToyController {
 
     async preset({ uID = null, pattern }) {
         this._refresh();
-        if (!uID || !this.users.uIDs().includes(uID)) { return false; };
+        if (!uID || !this.uIDs().includes(uID)) { return false; };
 
         console.log('[Lovense API] preset', uID, pattern);
 
@@ -207,7 +218,7 @@ class ToyController {
 
     async _function({ action, uID, strength = 10, duration = 10 }) {
         this._refresh();
-        if (!uID || !this.users.uIDs().includes(uID)) { return false; };
+        if (!uID || !this.uIDs().includes(uID)) { return false; };
 
         console.log('[Lovense API] _function', action, uID, strength, duration);
 
@@ -234,7 +245,7 @@ class ToyController {
 
     async csvPattern({ uID = null, filepath = null }) {
         this._refresh();
-        if (!uID || !this.users.uIDs().includes(uID)) { return false; };
+        if (!uID || !this.uIDs().includes(uID)) { return false; };
 
         // read pattern file
         const raw = fs.readFileSync(filepath, 'utf8');
@@ -252,18 +263,18 @@ class ToyController {
                 pattern.push({ time, power: (power / 10) });    // csv power: 0 ~ 200, API power: 0 ~ 20
             }
         }
-        fs.unlinkSync(filepath);
 
         let timeSec = null;
         // format time value to decisecond
         for (let p of pattern) {
-            p.time = oldVersion ? parseInt(p.time * 10) : parseInt(p.time);
-            timeSec = p.time;
+            // if is old version csv time is sec, if not, is ds. csv time: sec/ds, tick time: ms
+            p.time = parseInt(oldVersion ? p.time * 1000 : p.time * 100);
+            timeSec = parseInt(p.time / 1000);
         }
 
-        let timeHrs = parseInt(timeSec / 36000);
-        let timeMin = parseInt(timeSec / 600) % 60;
-        timeSec = parseInt(timeSec / 10) % 60;
+        let timeHrs = parseInt(timeSec / 3600);
+        let timeMin = parseInt(timeSec / 60) % 60;
+        timeSec = timeSec % 60;
         timeHrs = timeHrs ? `${timeHrs}:` : '';
         timeMin = timeMin ? `${timeHrs ? timeMin.toString().padStart(2, '0') : timeMin}:` : '';
         timeSec = timeSec ? `${timeMin ? timeSec.toString().padStart(2, '0') : timeSec}` : '';
@@ -271,7 +282,7 @@ class ToyController {
         let timeStr = timeHrs + timeMin + timeSec;
         let result = `${path.basename(filepath)} ${timeStr}`;
         console.log('[Lovense API] csv pattern', uID, result);
-        result = (await this.stop(uID)) ? result : false;
+        result = (await this.stop({ uID })) ? result : false;
 
         if (result) {
             // found user toys, set csv controller
@@ -294,9 +305,9 @@ class ToyController {
 
 
     _refresh() {
-        const now = Math.round(Date.now() / 1000);
+        const now = Date.now();
         let changed = false;
-        for (let uID of this.users.uIDs()) {
+        for (let uID of this.uIDs()) {
             let lastUpdated = this.users[uID].lastUpdated;
 
             if (lastUpdated < now - REFRESH_TIME) {
@@ -315,5 +326,8 @@ class ToyController {
 }
 
 const toyController = new ToyController();
+// init callback server
+const callbacks = new Callbacks(toyController);
+callbacks.webserver();
 
 module.exports = toyController;

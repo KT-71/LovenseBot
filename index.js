@@ -2,8 +2,7 @@
 require('dotenv').config();
 
 const fs = require("fs");
-const ngrok = require("@ngrok/ngrok");
-const DiscordBot = require('./bot.js');
+const DiscordBot = require('./Lovense_bot.js');
 
 // const REQUEST_HEADRERS = {
 //     'User-Agent': 'ToyBot/beep-boop'
@@ -14,11 +13,6 @@ if (!fs.existsSync('./.env')) {
 }
 
 (async () => {
-    await ngrok.authtoken(process.env.NGROK_AUTHTOKEN);
-
-    const listener = await ngrok.forward({ addr: process.env.PORT, authtoken_from_env: true });
-    console.log(`[Ngrok] Ingress established at:\n${listener.url()}\n`);
-    console.log(`[Ngrok] Please set callback url at:\nhttps://ja.lovense.com/user/developer/info\n`);
 
     const client = await DiscordBot.init();
 

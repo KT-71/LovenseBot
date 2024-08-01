@@ -22,9 +22,7 @@ class Callbacks {
         const handler = async (req, res) => {
             if (req.body?.uid) {
                 const body = req.body;
-                // const pieces = body.uid.split(':');
-                // this.controller.addUser(pieces[0], pieces[1], body);
-                this.controller.addUser(body.uid, body);
+                this.controller.addUser({ uID: body.uid, user: body });
             }
             res.json({ status: 'OK' });
         }

@@ -8,8 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const request = require('request');
 
-const controller = require('./ToyController.js');
-const Callbacks = require('./Callbacks.js');
+const controller = require('./Lovense_ToyController.js');
 
 
 module.exports = {
@@ -162,7 +161,7 @@ module.exports = {
                     } break;
 
                     case 'stop': {
-                        let res = await controller.stop(uID);
+                        let res = await controller.stop({ uID });
 
                         interaction.reply({
                             content: res ? "Break-time!" : "There aren't any toys connected",
@@ -286,16 +285,21 @@ module.exports = {
                         for (const [key, value] of message.attachments) {
                             const { name, url } = value;
                             const filepath = `./${name}`;
+
                             if (fs.existsSync(filepath)) { fs.unlinkSync(filepath); }
                             await new Promise((resolve) => { request(url).pipe(fs.createWriteStream(filepath)).on('close', resolve); });
                             args.filepath = filepath;
-                        }
-                        let res = await controller.csvPattern(args);
 
-                        interaction.reply({
-                            content: res ? `Here comes the ${res}!` : "There aren't any toys connected",
-                            allowedMentions: { repliedUser: false }, ephemeral: true
-                        }).catch(() => { });
+                            let res = await controller.csvPattern(args);
+                            fs.unlinkSync(filepath);
+
+                            interaction.reply({
+                                content: res ? `Here comes the ${res}!` : "There aren't any toys connected",
+                                allowedMentions: { repliedUser: false }, ephemeral: true
+                            }).catch(() => { });
+
+                            break;
+                        }
 
                     } break;
 
@@ -318,10 +322,6 @@ module.exports = {
         client.once('ready', async () => {
             // dc bot online
             console.log(`=====Lovense test bot is online!=====`);
-
-            // init callback server
-            const callbacks = new Callbacks(controller);
-            callbacks.webserver();
 
             // clock
             const intervalMethod = () => {
