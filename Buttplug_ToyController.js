@@ -66,15 +66,7 @@ class ToyController {
     toyCount = null;
     csvController = {};
 
-    constructor() {
-        try {
-            const raw = fs.readFileSync('./users.json', 'utf8');
-            let jsonRaw = JSON.parse(raw);
-            for (let uID of Object.keys(jsonRaw)) {
-                this.users[uID] = jsonRaw[uID];
-            }
-        } catch (e) { }
-    }
+    constructor() { }
 
     updateActivity() {
         let toyCount = this.getToys().length;
@@ -132,11 +124,12 @@ class ToyController {
 
         console.log('[Lovense API] _function', uID, 'Stop');
 
+        let res = false;
         for (const device of client.devices) {
-            await device.stop();
+            await device.stop().then(() => true).catch(e => e.message);
         }
 
-        return true;
+        return res;
     }
 
     // Vibrate: 0 ~ 1.0

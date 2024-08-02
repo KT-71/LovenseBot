@@ -118,9 +118,7 @@ module.exports = {
                                 case 'vibrate': content = "Buzz buzz!"; break;
                                 case 'rotate': content = "You spin me right round baby..."; break;
                             }
-                        } else {
-                            content = res || content;
-                        }
+                        } else { content = res || content; }
 
                         interaction.reply({ content, allowedMentions: { repliedUser: false }, ephemeral: true }).catch(() => { });
 
@@ -129,11 +127,11 @@ module.exports = {
                     case 'stop': {
                         let res = await controller.stop({ uID });
 
-                        interaction.reply({
-                            content: res ? "Break-time!" : "There aren't any toys connected",
-                            allowedMentions: { repliedUser: false }, ephemeral: true
-                        }).catch(() => { });
+                        let content = "There aren't any toys connected";
+                        if (res === true) { content = "Break-time!"; }
+                        else { content = res || content; }
 
+                        interaction.reply({ content, allowedMentions: { repliedUser: false }, ephemeral: true }).catch(() => { });
                     } break;
 
                     case 'panel': {
