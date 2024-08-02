@@ -122,7 +122,7 @@ class ToyController {
         const { client } = this.users[uID];
         if (client.devices.length == 0) { return false; }
 
-        console.log('[Lovense API] _function', uID, 'Stop');
+        console.log('[Buttplug.io API] _function', uID, 'Stop');
 
         let res = false;
         for (const device of client.devices) {
@@ -142,7 +142,7 @@ class ToyController {
         const { client } = this.users[uID];
         if (client.devices.length == 0) { return false; }
 
-        console.log('[Lovense API] _function', uID, action, strength);
+        console.log('[Buttplug.io API] _function', uID, action, strength);
 
         let res = false;
         for (const device of client.devices) {
@@ -203,7 +203,7 @@ class ToyController {
 
         let timeStr = timeHrs + timeMin + timeSec;
         let result = `${path.basename(filepath)} ${timeStr}`;
-        console.log('[Lovense API] csv pattern', uID, result);
+        console.log('[Buttplug.io API] csv pattern', uID, result);
         result = (await this.stop({ uID })) ? result : false;
 
         if (result) {

@@ -67,14 +67,36 @@ module.exports = {
 
                         if (res === null) {
                             interaction.reply({
-                                content: `Sorry, Can not connect to Buttplug server right now`,
+                                content: `Sorry, Can not connect to Buttplug server (${args.connect}) right now`,
                                 allowedMentions: { repliedUser: false }, ephemeral: true
                             }).catch(() => { });
                             return;
                         }
 
+                        let { user } = interaction;
+                        let embed = new EmbedBuilder()
+                            .setAuthor({
+                                name: `${user.displayName} <@${user.id}>`,
+                                iconURL: user.displayAvatarURL({ format: 'png', size: 1024 }).replace(/\.webp/, '.png')
+                            })
+                            .setTitle('Lovense panel')
+                            .setDescription('Client connected');
+
+                        // csv player panel
+                        const buttons = [[{ label: 'Panel', customID: 'panel', style: ButtonStyle.Primary }]];
+                        let components = [];
+                        for (let row of buttons) {
+                            let actionRow = new ActionRowBuilder();
+                            for (let { label, customID, style } of row) {
+                                actionRow.addComponents(new ButtonBuilder().setDisabled(false)
+                                    .setLabel(label).setCustomId(customID).setStyle(style)
+                                );
+                            }
+                            components.push(actionRow);
+                        }
+
                         interaction.reply({
-                            content: `Client connected`,
+                            content: ` `, embeds: [embed], components,
                             allowedMentions: { repliedUser: false }, ephemeral: true
                         }).catch(() => { });
 
