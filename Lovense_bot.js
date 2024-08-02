@@ -42,9 +42,12 @@ module.exports = {
 
                 const gID = interaction.guildId;
                 const uID = interaction.user.id;
-                const subCommand = isCommand ? interaction.options?._subcommand : interaction.customId.split(' ')[0];
-                const hoistedOptions = isCommand ? interaction.options._hoistedOptions :
-                    [{ name: 'pattern', type: 3, value: interaction.customId.split(' ')[1] }];
+                const subCommand = isCommand ?
+                    interaction.options?._subcommand :
+                    interaction.customId.split(' ')[0];
+                const hoistedOptions = isCommand ?
+                    interaction.options?._hoistedOptions :
+                    [{ name: subCommand, type: 3, value: interaction.customId.split(' ')[1] }];
 
                 switch (subCommand) {
 
@@ -116,7 +119,7 @@ module.exports = {
                         let res = await controller[subCommand](args);
 
                         let content = "There aren't any toys connected";
-                        if (res) {
+                        if (res === true) {
                             switch (subCommand) {
                                 case 'vibrate': content = "Buzz buzz!"; break;
                                 case 'rotate': content = "You spin me right round baby..."; break;
@@ -125,6 +128,8 @@ module.exports = {
                                 case 'fingering': content = "Getting to the point!"; break;
                                 case 'suction': content = "Sucking it up!"; break;
                             }
+                        } else {
+                            content = res || content;
                         }
 
                         interaction.reply({ content, allowedMentions: { repliedUser: false }, ephemeral: true }).catch(() => { });
@@ -243,7 +248,7 @@ module.exports = {
                         // csv player panel
                         const buttons = [[
                             { label: 'Play CSV', customID: 'csv:play', style: ButtonStyle.Primary },
-                            { label: 'Stop', customID: 'stop', style: ButtonStyle.Danger },
+                            { label: 'Stop', customID: 'csv:stop', style: ButtonStyle.Danger },
                             { label: 'Pause 100ms', customID: 'csv:pause', style: ButtonStyle.Secondary },
                             { label: 'Forward 100ms', customID: 'csv:forward', style: ButtonStyle.Secondary },
                         ]]
@@ -303,6 +308,17 @@ module.exports = {
 
                     } break;
 
+                    case 'csv:stop': {
+                        await controller.csvStop({ uID });
+                        let res = await controller.stop({ uID });
+
+                        interaction.reply({
+                            content: res ? "Break-time!" : "There aren't any toys connected",
+                            allowedMentions: { repliedUser: false }, ephemeral: true
+                        }).catch(() => { });
+
+                    } break;
+
                     case 'csv:pause': case 'csv:forward': {
                         if (!isButton) { return; }
 
@@ -337,20 +353,6 @@ module.exports = {
 
         await client.login(process.env.DISCORD_TOKEN);  //.then(console.log);
         const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-
-        // // delete global commands
-        // for (let cmd of await rest.get(Routes.applicationCommands(client.user.id))) {
-        //     if (cmd.name != 'lovense') { continue; }
-        //     await rest.delete(Routes.applicationCommand(client.user.id, cmd.id))
-        //         .then(() => console.log('Successfully deleted guild command')).catch(console.error);
-        // }
-
-        // // delete guild-based commands
-        // for (let cmd of await rest.get(Routes.applicationGuildCommands(client.user.id, process.env.GUILD_ID))) {
-        //     if (cmd.name != 'lovense') { continue; }
-        //     await rest.delete(Routes.applicationGuildCommand(client.user.id, process.env.GUILD_ID, cmd.id))
-        //         .then(() => console.log('Successfully deleted guild command')).catch(console.error);
-        // }
 
         // build new commands
         const commands = [
@@ -401,7 +403,7 @@ module.exports = {
                 )
 
                 // .addSubcommand(subcommand => subcommand.setName('preset').setDescription('Send a Preset pattern to all toys. Loops until stopped, or replaced with another action')
-                //     .addStringOption(option => option.setName('pattern').setRequired(true).setDescription('The pattern to send')
+                //     .addStringOption(option => option.setName('preset').setRequired(true).setDescription('The pattern to send')
                 //         .setChoices(
                 //             { name: 'Pulse', value: 'pulse' }, { name: 'Wave', value: 'wave' }, { name: 'Fireworks', value: 'fireworks' }, { name: 'Earthquake', value: 'earthquake' }
                 //         )
@@ -412,6 +414,24 @@ module.exports = {
                 .addSubcommand(subcommand => subcommand.setName('panel').setDescription('Remote panel'))
 
         ];
+
+        let onlineCmd = (await rest.get(Routes.applicationGuildCommands(client.user.id, process.env.GUILD_ID)) || []).filter(cmd => cmd.name == 'lovense')[0];
+        if (onlineCmd.name != commands[0].name || onlineCmd.description != commands[0].description) {
+
+            // // delete global commands
+            // for (let cmd of await rest.get(Routes.applicationCommands(client.user.id))) {
+            //     if (cmd.name != 'lovense') { continue; }
+            //     await rest.delete(Routes.applicationCommand(client.user.id, cmd.id))
+            //         .then(() => console.log('Successfully deleted guild command')).catch(console.error);
+            // }
+
+            // delete guild-based commands
+            for (let cmd of await rest.get(Routes.applicationGuildCommands(client.user.id, process.env.GUILD_ID))) {
+                if (cmd.name != 'lovense') { continue; }
+                await rest.delete(Routes.applicationGuildCommand(client.user.id, process.env.GUILD_ID, cmd.id))
+                    .then(() => console.log('Successfully deleted guild command')).catch(console.error);
+            }
+        }
 
         await rest.put(Routes.applicationGuildCommands(client.user.id, process.env.GUILD_ID), { body: commands },);
 

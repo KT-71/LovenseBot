@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const Callbacks = require('./Callbacks.js');
+const Callbacks = require('./Lovense_Callbacks.js');
 
 const request = require('request');
 const util = require('util');
@@ -35,14 +35,12 @@ class CsvController {
 
     interval = null;
     startTime = 0;
-    lastTickTime = 0;
     offsetTime = 0;
 
     play() {
         this.startTime = Date.now();
-        this.lastTickTime = this.startTime;
 
-        this.interval = setInterval(() => this.tick(), 50);
+        this.interval = setInterval(() => this.tick(), 10);
     }
 
     async tick() {
@@ -53,17 +51,16 @@ class CsvController {
         const thisTickTime = Date.now();
         const nextPatternTime = this.startTime + p.time + this.offsetTime;
 
-        if (this.lastTickTime < nextPatternTime && nextPatternTime <= thisTickTime) {
-            this.lastTickTime = thisTickTime;
+        if (nextPatternTime <= thisTickTime) {
             ++this.index;
 
-            if (p.power <= 0.1) {
+            if (p.power <= 0.01) {
                 toyController.stop({ uID: this.uID });
             } else {
                 toyController.vibrate({ uID: this.uID, strength: p.power, duration: 0 });
             }
 
-            if (this.index >= this.patternList.length) { this.stop(); }
+            if (this.index >= this.patternList.length) { await sleep(1000); this.stop(); }
         }
     }
 
@@ -147,7 +144,6 @@ class ToyController {
     }
 
     async stop({ uID }) {
-        if (this.csvController[uID]) { this.csvController[uID].stop(); delete this.csvController[uID]; }
         return this._function({ action: 'Stop', uID, strength: 0, duration: 0 });
     }
 
@@ -185,30 +181,30 @@ class ToyController {
         return (await this.apiPost(req)) ? pattern : false;
     }
 
-    async preset({ uID = null, pattern }) {
+    async preset({ uID = null, preset }) {
         this._refresh();
         if (!uID || !this.uIDs().includes(uID)) { return false; };
 
-        console.log('[Lovense API] preset', uID, pattern);
+        console.log('[Lovense API] preset', uID, preset);
 
         const req = {
             token: this.BASE_REQ.token, apiVer: '2',
             uid: uID,
             command: 'Preset',
-            name: pattern,
+            name: preset,
             timeSec: 0
         }
 
         let url = `https://${this.users[uID].domain}:${this.users[uID].httpsPort}/command`;
-        return (await this.apiPost(req)) ? pattern : false;
+        return (await this.apiPost(req)) ? preset : false;
     }
 
-    // Vibrate:0 ~ 20
-    // Rotate: 0~20
-    // Pump:0~3
-    // Thrusting:0~20
-    // Fingering:0~20
-    // Suction  :0~20
+    // Vibrate:   0 ~ 20
+    // Rotate:    0 ~ 20
+    // Pump:      0 ~  3
+    // Thrusting: 0 ~ 20
+    // Fingering: 0 ~ 20
+    // Suction  : 0 ~ 20
     async vibrate({ uID = null, strength = 10, duration = 10 }) { return this._function({ action: 'Vibrate', uID, strength, duration }); }
     async rotate({ uID = null, strength = 10, duration = 10 }) { return this._function({ action: 'Rotate', uID, strength, duration }); }
     async pump({ uID = null, strength = 2, duration = 10 }) { return this._function({ action: 'Pump', uID, strength, duration }); }
@@ -300,6 +296,12 @@ class ToyController {
         if (this.csvController[uID]) {
             if (add) { this.csvController[uID].offsetTime += 1; }
             else { this.csvController[uID].offsetTime -= 1; }
+        }
+    }
+    async csvStop({ uID = null }) {
+        if (this.csvController[uID]) {
+            this.csvController[uID].stop();
+            delete this.csvController[uID];
         }
     }
 
