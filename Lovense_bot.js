@@ -285,6 +285,7 @@ module.exports = {
                         let { message } = interaction;
 
                         let args = { gID, uID };
+                        let time0 = Date.now();
 
                         // download csv file
                         for (const [key, value] of message.attachments) {
@@ -297,6 +298,8 @@ module.exports = {
 
                             let res = await controller.csvPattern(args);
                             fs.unlinkSync(filepath);
+
+                            await controller.csvOffset({ gID, uID, add: (Date.now() - time0 + 100) });
 
                             interaction.reply({
                                 content: res ? `Here comes the ${res}!` : "There aren't any toys connected",
@@ -322,7 +325,7 @@ module.exports = {
                     case 'csv:pause': case 'csv:forward': {
                         if (!isButton) { return; }
 
-                        let args = { gID, uID, add: (subCommand == 'csv:pause') };
+                        let args = { gID, uID, add: (subCommand == 'csv:pause') ? 100 : -100 };
 
                         let res = await controller.csvOffset(args);
 

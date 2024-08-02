@@ -218,10 +218,9 @@ class ToyController {
 
         return result;
     }
-    async csvOffset({ uID = null, add = true }) {
+    async csvOffset({ uID = null, add = 100 }) {
         if (this.csvController[uID]) {
-            if (add) { this.csvController[uID].offsetTime += 1; }
-            else { this.csvController[uID].offsetTime -= 1; }
+            this.csvController[uID].offsetTime += add;
         }
     }
     async csvStop({ uID = null }) {
