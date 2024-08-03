@@ -25,12 +25,20 @@ ngrok.authtoken(process.env.NGROK_AUTHTOKEN)
 
 class CsvController {
     uID = null;
-    patternList = [];   // [{ time, power }...]
+    patternList = [
+        { time: -4000, power: 120 }, { time: -3800, power: 0 },
+        { time: -3000, power: 120 }, { time: -2800, power: 0 },
+        { time: -2000, power: 120 }, { time: -1800, power: 0 },
+        { time: -1000, power: 120 }, { time: -800, power: 0 },
+        { time: 0, power: 120 }, { time: 600, power: 0 },
+    ];   // [{ time, power }...]
     index = 0;
 
     constructor(uID, patternList) {
         this.uID = uID;
-        this.patternList = patternList;
+        for (let p of patternList) {
+            this.patternList.push(p);
+        }
     }
 
     interval = null;
@@ -38,7 +46,7 @@ class CsvController {
     offsetTime = 0;
 
     play() {
-        this.startTime = Date.now();
+        this.startTime = Date.now() + 6000;
 
         this.interval = setInterval(() => this.tick(), 10);
     }
