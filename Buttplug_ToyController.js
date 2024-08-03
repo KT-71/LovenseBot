@@ -13,12 +13,12 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 class CsvController {
     uID = null;
     patternList = [
-        { time: -4000, power: 120 }, { time: -3800, power: 0 },
-        { time: -3000, power: 120 }, { time: -2800, power: 0 },
-        { time: -2000, power: 120 }, { time: -1800, power: 0 },
-        { time: -1000, power: 120 }, { time: -800, power: 0 },
-        { time: 0, power: 120 }, { time: 600, power: 0 },
-    ];   // [{ time, power }...]
+        { time: -4000, power: 12 }, { time: -3800, power: 0 },
+        { time: -3000, power: 12 }, { time: -2800, power: 0 },
+        { time: -2000, power: 12 }, { time: -1800, power: 0 },
+        { time: -1000, power: 12 }, { time: -800, power: 0 },
+        { time: 0, power: 12 }, { time: 600, power: 0 },
+    ];   // [{ time: ms, power: 0-20 }...]
     index = 0;
 
     constructor(uID, patternList) {
@@ -52,7 +52,7 @@ class CsvController {
             if (p.power <= 0.01) {
                 toyController.stop({ uID: this.uID });
             } else {
-                toyController.vibrate({ uID: this.uID, strength: p.power, duration: 0 });
+                toyController.vibrate({ uID: this.uID, strength: parseFloat(p.power / 20), duration: 0 });
             }
 
             if (this.index >= this.patternList.length) { await sleep(1000); this.stop(); }
@@ -181,7 +181,6 @@ class ToyController {
         const raw = fs.readFileSync(filepath, 'utf8');
         const lines = raw.split(/\r?\n/);
         const pattern = [];
-        let oldVersion = false; // time in sec
         for (const _line of lines) {
             let line = `${_line}`;
 
@@ -189,19 +188,14 @@ class ToyController {
             if (regex.test(line)) {
                 // match
                 const [, time, power] = line.match(regex);
-                if (!oldVersion && time.includes('.')) { oldVersion = true; }
-                pattern.push({ time, power: (power / 200) });    // csv power: 0 ~ 200, API power: 0 ~ 1.0
+                // csv decisecond time to ms
+                // csv power: 0 ~ 20, patternList: 0 ~ 20, API power: 0 ~ 1.0
+                pattern.push({ time: parseFloat(time * 100), power: parseFloat(power) });
             }
         }
 
-        let timeSec = null;
-        // format time value to decisecond
-        for (let p of pattern) {
-            // if is old version csv time is sec, if not, is ds. csv time: sec/ds, tick time: ms
-            p.time = parseInt(oldVersion ? p.time * 1000 : p.time * 100);
-            timeSec = parseInt(p.time / 1000);
-        }
-
+        // format time value to 
+        let timeSec = parseInt(pattern[pattern.length - 1].time / 100);
         let timeHrs = parseInt(timeSec / 3600);
         let timeMin = parseInt(timeSec / 60) % 60;
         timeSec = timeSec % 60;
