@@ -106,6 +106,8 @@ module.exports = {
                         const embed = new EmbedBuilder()
                             .setTitle(`Connected Toys`);
                         let fields = [];
+						
+						await controller.users[uID].client.startScanning();		
 
                         let toyCount = {};
                         for (let toy of controller.getToys(gID)) {

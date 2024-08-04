@@ -13,11 +13,12 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 class CsvController {
     uID = null;
     patternList = [
+        { time: -5000, power: 12 }, { time: -4800, power: 0 },
         { time: -4000, power: 12 }, { time: -3800, power: 0 },
         { time: -3000, power: 12 }, { time: -2800, power: 0 },
         { time: -2000, power: 12 }, { time: -1800, power: 0 },
         { time: -1000, power: 12 }, { time: -800, power: 0 },
-        { time: 0, power: 12 }, { time: 600, power: 0 },
+        { time: 0, power: 20 }, { time: 600, power: 0 },
     ];   // [{ time: ms, power: 0-20 }...]
     index = 0;
 
@@ -33,7 +34,7 @@ class CsvController {
     offsetTime = 0;
 
     play() {
-        this.startTime = Date.now() + 6000;
+        this.startTime = Date.now() + 10000;
 
         this.interval = setInterval(() => this.tick(), 10);
     }
@@ -100,6 +101,8 @@ class ToyController {
         const client = new Buttplug.ButtplugClient("Buttplug Example Client");
         const connector = new Buttplug.ButtplugNodeWebsocketClientConnector(fullAddress);
         await client.connect(connector);
+		
+		await client.startScanning();		
 
         this.addUser({ uID, user: { client, address } });
         return true;
@@ -134,7 +137,7 @@ class ToyController {
 
         let res = false;
         for (const device of client.devices) {
-            await device.stop().then(() => true).catch(e => e.message);
+            res = await device.stop().then(() => true).catch(e => e.message);
         }
 
         return res;
@@ -195,7 +198,7 @@ class ToyController {
         }
 
         // format time value to 
-        let timeSec = parseInt(pattern[pattern.length - 1].time / 100);
+        let timeSec = parseInt(pattern[pattern.length - 1].time / 1000);
         let timeHrs = parseInt(timeSec / 3600);
         let timeMin = parseInt(timeSec / 60) % 60;
         timeSec = timeSec % 60;
