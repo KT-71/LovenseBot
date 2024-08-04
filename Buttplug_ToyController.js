@@ -29,41 +29,48 @@ class CsvController {
         }
     }
 
-    interval = null;
+    stopCsv = false;
     startTime = 0;
     offsetTime = 0;
 
-    play() {
+    async playCsv() {
         this.startTime = Date.now() + 10000;
 
-        this.interval = setInterval(() => this.tick(), 10);
-    }
+        for (let p of this.patternList) {
 
-    async tick() {
-        const p = this.patternList[this.index];
-        if (!p) { return; }
+            // get next pattern time in ms
+            const nextPatternTime = this.startTime + p.time + this.offsetTime;
 
-        // get this tick time in ds
-        const thisTickTime = Date.now();
-        const nextPatternTime = this.startTime + p.time + this.offsetTime;
+            while (true) {
+                // break by user called
+                if (this.stopCsv) { break; }
 
-        if (nextPatternTime <= thisTickTime) {
-            ++this.index;
+                // get this tick time in ms
+                const thisTickTime = Date.now();
+                const sleepTime = nextPatternTime - thisTickTime;
 
-            if (p.power <= 0.01) {
-                toyController.stop({ uID: this.uID });
-            } else {
-                toyController.vibrate({ uID: this.uID, strength: parseFloat(p.power / 20), duration: 0 });
+                if (sleepTime <= 0) {
+
+                    // over time, do this p
+                    if (p.power <= 0.01) {
+                        toyController.stop({ uID: this.uID });
+                    } else {
+                        toyController.vibrate({ uID: this.uID, strength: parseFloat(p.power / 20), duration: 0 });
+                    }
+                    break;  // break to next p
+                } else if (sleepTime > 1000) {
+                    await sleep(1000);
+                } else {
+                    await sleep(sleepTime > 5 ? sleepTime - 5 : sleepTime);
+                }
             }
-
-            if (this.index >= this.patternList.length) { await sleep(1000); this.stop(); }
         }
+
+        // all pattern done
     }
 
     stop() {
-        if (!this.interval) {
-            clearInterval(this.interval);
-        }
+        this.stopCsv = true;
     }
 }
 
@@ -101,8 +108,8 @@ class ToyController {
         const client = new Buttplug.ButtplugClient("Buttplug Example Client");
         const connector = new Buttplug.ButtplugNodeWebsocketClientConnector(fullAddress);
         await client.connect(connector);
-		
-		await client.startScanning();		
+
+        await client.startScanning();
 
         this.addUser({ uID, user: { client, address } });
         return true;
@@ -218,7 +225,7 @@ class ToyController {
                 delete this.csvController[uID];
             }
             this.csvController[uID] = new CsvController(uID, pattern);
-            this.csvController[uID].play();
+            this.csvController[uID].playCsv();
         }
 
         return result;
